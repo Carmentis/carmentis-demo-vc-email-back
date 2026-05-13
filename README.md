@@ -1,98 +1,150 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# carmentis-demo-email-back
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend NestJS du démo email Carmentis. Il expose deux flux principaux :
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+- **Issuer** : authentification par wallet Carmentis et émission d'une `EmailCredential` (SD-JWT) après vérification d'adresse email.
+- **Demo** : authentification par wallet, soumission d'une Verifiable Presentation, et envoi d'emails.
 
-## Description
+## Prérequis
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- Node.js >= 20
+- pnpm
 
-## Project setup
+## Installation
 
 ```bash
-$ pnpm install
+pnpm install
 ```
 
-## Compile and run the project
+## Configuration
+
+Copier et adapter `config.toml` à la racine du projet :
+
+```toml
+[email]
+host = "email-smtp.eu-west-1.amazonaws.com"
+port = 465
+secure = true
+from = "demo@carmentis.io"
+
+[email.auth]
+user = "<SMTP_USER>"
+pass = "<SMTP_PASSWORD>"
+
+[operator]
+url = "https://operator.arnauld.testnet.carmentis.io"
+api_key = "<OPERATOR_API_KEY>"
+
+[relay]
+url = "https://relay.testnet.carmentis.io"
+```
+
+Le chemin du fichier de config est configurable via la variable d'environnement `CONFIG_FILE` (défaut : `config.toml`).
+
+## Clés de signature (SD-JWT)
+
+Au démarrage, le serveur charge la paire de clés Ed25519 depuis un fichier JSON (défaut : `keys.json` à la racine du projet).
+
+**Si le fichier n'existe pas**, une nouvelle paire est générée automatiquement et sauvegardée dans ce fichier.
+
+La clé publique est affichée dans les logs au démarrage.
+
+Le chemin du fichier est configurable via la variable d'environnement `KEYS_FILE`.
+
+Structure du fichier `keys.json` :
+
+```json
+{
+  "publicJwk": {
+    "crv": "Ed25519",
+    "x": "<base64url>",
+    "kty": "OKP"
+  },
+  "privateJwk": {
+    "crv": "Ed25519",
+    "d": "<base64url>",
+    "x": "<base64url>",
+    "kty": "OKP"
+  }
+}
+```
+
+> **Important** : ne pas committer `keys.json` (ajouter au `.gitignore`).
+
+## Lancement
 
 ```bash
-# development
-$ pnpm run start
+# Développement (watch mode)
+pnpm run start:dev
 
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+# Production
+pnpm run build
+pnpm run start:prod
 ```
 
-## Run tests
+Le serveur écoute sur le port `3000` par défaut (configurable via `PORT`).
+
+## Variables d'environnement
+
+| Variable      | Défaut        | Description                             |
+|---------------|---------------|-----------------------------------------|
+| `PORT`        | `3000`        | Port d'écoute HTTP                      |
+| `CONFIG_FILE` | `config.toml` | Chemin vers le fichier de configuration |
+| `KEYS_FILE`   | `keys.json`   | Chemin vers le fichier de clés JWK      |
+
+## API
+
+### Flux Issuer (`/issuer`)
+
+| Méthode | Route                        | Auth    | Description                                   |
+|---------|------------------------------|---------|-----------------------------------------------|
+| GET     | `/issuer/config`             | -       | Retourne l'URL du relay Carmentis             |
+| GET     | `/issuer/challenge`          | -       | Génère un challenge d'authentification        |
+| POST    | `/issuer/auth`               | -       | Authentifie via signature JWS du challenge    |
+| POST    | `/issuer/email/send-code`    | Session | Envoie un code de vérification par email      |
+| POST    | `/issuer/email/verify-code`  | Session | Vérifie le code et émet une `EmailCredential` |
+
+### Flux Demo (`/demo`)
+
+| Méthode | Route                  | Auth    | Description                                  |
+|---------|------------------------|---------|----------------------------------------------|
+| GET     | `/demo/config`         | -       | Retourne l'URL du relay Carmentis            |
+| GET     | `/demo/challenge`      | -       | Génère un challenge d'authentification       |
+| POST    | `/demo/auth`           | -       | Authentifie via signature JWS du challenge   |
+| GET     | `/demo/profile`        | Session | Retourne le profil de l'utilisateur connecté |
+| POST    | `/demo/profile/vp`     | Session | Soumet une Verifiable Presentation           |
+| POST    | `/demo/email/prepare`  | Session | Prépare un email (prévisualisation)          |
+| POST    | `/demo/email/send`     | Session | Envoie un email (supporte les pièces jointes, max 10 × 10 Mo) |
+
+### Authentification
+
+Les endpoints protégés nécessitent un header `x-session-token` obtenu via le flux suivant :
+
+1. `GET /*/challenge` → récupérer `{ challenge, challengeId }`
+2. Signer le challenge avec la clé privée du wallet (JWS compact)
+3. `POST /*/auth` avec `{ challengeId, pk, signature }` → recevoir `{ sessionToken }`
+4. Utiliser `x-session-token: <sessionToken>` sur les requêtes suivantes
+
+### Credential émis
+
+Le credential `EmailCredential` est un SD-JWT signé Ed25519 avec les champs suivants :
+
+| Champ   | Description                                              |
+|---------|----------------------------------------------------------|
+| `iss`   | DID JWK de l'issuer (clé publique du serveur)           |
+| `sub`   | DID JWK de l'utilisateur (clé publique du wallet)       |
+| `vct`   | `"EmailCredential"`                                      |
+| `iat`   | Timestamp d'émission (Unix)                             |
+| `email` | Adresse email vérifiée (champ sélectivement divulgable) |
+
+## Stockage
+
+Toutes les données (challenges, sessions, codes email, profils) sont stockées **en mémoire**. Elles sont perdues au redémarrage du serveur.
+
+## Tests
 
 ```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+pnpm run test        # tests unitaires
+pnpm run test:e2e    # tests end-to-end
+pnpm run test:cov    # couverture de code
 ```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).

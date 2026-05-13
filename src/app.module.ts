@@ -9,15 +9,15 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
 @Module({
-  imports: [
-    ConfigModule,
-    StorageModule,
-    CryptoModule,
-    EmailModule,
-    IssuerModule,
-    DemoModule,
-  ],
-  controllers: [AppController],
-  providers: [AppService],
+	imports: [
+		ConfigModule,
+		StorageModule,
+		CryptoModule,
+		EmailModule,
+		IssuerModule,
+		DemoModule,
+	],
+	controllers: [AppController],
+	providers: [AppService],
 })
 export class AppModule {}

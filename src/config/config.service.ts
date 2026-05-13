@@ -6,16 +6,16 @@ import { Config, ConfigSchema } from './config.schema';
 
 @Injectable()
 export class ConfigService {
-  private readonly config: Config;
+	private readonly config: Config;
 
-  constructor() {
-    const configFile = process.env.CONFIG_FILE ?? 'config.toml';
-    const raw = readFileSync(configFile, 'utf-8');
-    const parsed = parse(raw);
-    this.config = v.parse(ConfigSchema, parsed);
-  }
+	constructor() {
+		const configFile = process.env.CONFIG_FILE ?? 'config.toml';
+		const raw = readFileSync(configFile, 'utf-8');
+		const parsed = parse(raw);
+		this.config = v.parse(ConfigSchema, parsed);
+	}
 
-  get(): Config {
-    return this.config;
-  }
+	get(): Config {
+		return this.config;
+	}
 }

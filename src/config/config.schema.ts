@@ -1,19 +1,23 @@
 import * as v from 'valibot';
 
 export const ConfigSchema = v.object({
-  email: v.object({
-    host: v.string(),
-    port: v.pipe(v.number(), v.integer()),
-    secure: v.boolean(),
-    from: v.string(),
-    auth: v.object({
-      user: v.string(),
-      pass: v.string(),
-    }),
-  }),
-  relay: v.object({
-    url: v.string(),
-  }),
+	email: v.object({
+		host: v.string(),
+		port: v.pipe(v.number(), v.integer()),
+		secure: v.boolean(),
+		from: v.string(),
+		auth: v.object({
+			user: v.string(),
+			pass: v.string(),
+		}),
+	}),
+	relay: v.object({
+		url: v.string(),
+	}),
+	operator: v.object({
+		url: v.string(),
+		api_key: v.string(),
+	}),
 });
 
 export type Config = v.InferOutput<typeof ConfigSchema>;
