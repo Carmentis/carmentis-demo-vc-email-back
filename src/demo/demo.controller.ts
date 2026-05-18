@@ -1,6 +1,7 @@
 import {
 	Body,
 	Controller,
+	Delete,
 	Get,
 	Logger,
 	Post,
@@ -56,6 +57,13 @@ export class DemoController {
 	@UseGuards(AuthGuard)
 	async submitVp(@Req() req: any, @Body() body: { vp: string }) {
 		return this.demoService.submitVp(req.publicKey, body.vp);
+	}
+
+	@Delete('profile/vp')
+	@UseGuards(AuthGuard)
+	deleteVp(@Req() req: any) {
+		this.demoService.clearVp(req.publicKey);
+		return { success: true };
 	}
 
 	@Post('email/prepare')

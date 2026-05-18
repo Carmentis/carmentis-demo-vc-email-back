@@ -105,6 +105,10 @@ export class DemoService {
 		}
 	}
 
+	clearVp(publicKey: string): void {
+		this.storage.updateDemoUser(publicKey, { vp: undefined, email: undefined });
+	}
+
 	async prepareEmail(
 		publicKey: string,
 		to: string,
@@ -130,8 +134,9 @@ export class DemoService {
 			actors: [{ name: 'Operator' }, { name: user.email }],
 			data: {
 				notif: 'Email sent',
-				sentAt: new Date().toISOString(),
+				sentAt: new Date().toLocaleString(),
 				titre: subject,
+				message,
 				emailCredential: { __sd_jwt__: user.vp ?? '' },
 			},
 			channelAssignations: [
