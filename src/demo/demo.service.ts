@@ -28,6 +28,18 @@ export class DemoService {
 		});
 	}
 
+	createVpChallenge(): { vpChallengeId: string; nonce: string; audience: string } {
+		const nonce = this.crypto.generateChallenge();
+		const audience = this.crypto.generateToken();
+		const vpChallengeId = this.crypto.generateToken();
+		this.storage.setVpChallenge(vpChallengeId, {
+			nonce,
+			audience,
+			createdAt: Date.now(),
+		});
+		return { vpChallengeId, nonce, audience };
+	}
+
 	createChallenge(): { challenge: string; challengeId: string } {
 		const challenge = this.crypto.generateChallenge();
 		const challengeId = this.crypto.generateToken();
@@ -80,13 +92,62 @@ export class DemoService {
 
 	async submitVp(
 		publicKey: string,
-		vp: string,
+		vpChallengeId: string,
+		vpToken: string,
 	): Promise<{ valid: boolean; email: string }> {
-		this.logger.log(
-			`Submitting verifiable presentation ${vp} for publicKey: ${publicKey}`,
-		);
+		this.logger.log(`Submitting VP for publicKey: ${publicKey}`);
+
+		const vpChallenge = this.storage.getVpChallenge(vpChallengeId);
+		if (!vpChallenge) {
+			throw new BadRequestException('Invalid or expired VP challenge');
+		}
+		this.storage.deleteVpChallenge(vpChallengeId);
+
 		try {
-			const { payload } = await this.sdjwt.verify(vp);
+			// Decode the VP token first to extract subject public key
+			const decoded = await this.sdjwt.decode(vpToken);
+			const vcPayload = decoded.jwt?.payload as any;
+			if (!vcPayload?.sub) {
+				throw new BadRequestException('Missing subject in credential');
+			}
+
+			// Verify that the subject matches the authenticated user
+			if (vcPayload.sub !== publicKey) {
+				throw new BadRequestException(
+					'Credential subject does not match authenticated user',
+				);
+			}
+
+			// Extract holder public key from sub (did:jwk)
+			const subParts = (vcPayload.sub as string).split(':');
+			if (
+				subParts.length < 3 ||
+				subParts[0] !== 'did' ||
+				subParts[1] !== 'jwk'
+			) {
+				throw new BadRequestException('Invalid subject DID format');
+			}
+
+			const { nonce: expectedNonce, audience: expectedAudience } =
+				vpChallenge;
+
+			// Verify with kbVerifier checking nonce, audience, and holder signature
+			const sdjwtWithKb = new SDJwtInstance<SdJwtPayload>({
+				verifier: async (data: string, sig: string) =>
+					this.crypto.verify(data, sig),
+				hasher: (data: string, alg: string) =>
+					this.crypto.hash(data, alg),
+				signAlg: 'EdDSA',
+				hashAlg: 'sha-256',
+				saltGenerator: () => this.crypto.generateSalt(),
+				kbVerifier: async (data: string, sig: string ) => {
+					return this.crypto.verify(data, sig, vcPayload.sub);
+				},
+			});
+
+			const { payload } = await sdjwtWithKb.verify(vpToken, {
+				keyBindingNonce: expectedNonce,
+			});
 			const email = (payload as any).email;
 			if (!email) {
 				throw new BadRequestException(
@@ -94,12 +155,10 @@ export class DemoService {
 				);
 			}
 
-			this.storage.updateDemoUser(publicKey, { vp, email });
+			this.storage.updateDemoUser(publicKey, { vp: vpToken, email });
 			return { valid: true, email };
 		} catch (error) {
-			this.logger.error(
-				`Error verifying verifiable presentation: ${error}`,
-			);
+			this.logger.error(`Error verifying VP: ${error}`);
 			if (error instanceof BadRequestException) throw error;
 			throw new BadRequestException('Invalid verifiable presentation');
 		}

@@ -24,12 +24,19 @@ export interface DemoUser {
 	createdAt: number;
 }
 
+export interface VpChallengeEntry {
+	nonce: string;
+	audience: string;
+	createdAt: number;
+}
+
 @Injectable()
 export class StorageService {
 	private challenges = new Map<string, ChallengeEntry>();
 	private sessions = new Map<string, SessionEntry>();
 	private emailCodes = new Map<string, EmailCodeEntry>();
 	private demoUsers = new Map<string, DemoUser>();
+	private vpChallenges = new Map<string, VpChallengeEntry>();
 
 	// Challenges
 	setChallenge(id: string, challenge: string): void {
@@ -84,5 +91,18 @@ export class StorageService {
 		if (user) {
 			this.demoUsers.set(publicKey, { ...user, ...update });
 		}
+	}
+
+	// VP Challenges
+	setVpChallenge(id: string, entry: VpChallengeEntry): void {
+		this.vpChallenges.set(id, entry);
+	}
+
+	getVpChallenge(id: string): VpChallengeEntry | undefined {
+		return this.vpChallenges.get(id);
+	}
+
+	deleteVpChallenge(id: string): void {
+		this.vpChallenges.delete(id);
 	}
 }

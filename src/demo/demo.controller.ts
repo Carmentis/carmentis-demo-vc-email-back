@@ -53,10 +53,23 @@ export class DemoController {
 		return this.demoService.getProfile(req.publicKey);
 	}
 
+	@Get('vp-challenge')
+	@UseGuards(AuthGuard)
+	getVpChallenge() {
+		return this.demoService.createVpChallenge();
+	}
+
 	@Post('profile/vp')
 	@UseGuards(AuthGuard)
-	async submitVp(@Req() req: any, @Body() body: { vp: string }) {
-		return this.demoService.submitVp(req.publicKey, body.vp);
+	async submitVp(
+		@Req() req: any,
+		@Body() body: { vpChallengeId: string; vp_token: string },
+	) {
+		return this.demoService.submitVp(
+			req.publicKey,
+			body.vpChallengeId,
+			body.vp_token,
+		);
 	}
 
 	@Delete('profile/vp')
