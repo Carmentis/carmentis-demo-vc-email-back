@@ -17,6 +17,7 @@ export const ConfigSchema = v.object({
 	operator: v.object({
 		url: v.string(),
 		api_key: v.string(),
+		gas_price_in_atomics: v.pipe(v.number(), v.integer()),
 	}),
 });
 

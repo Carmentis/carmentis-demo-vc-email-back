@@ -181,10 +181,10 @@ export class DemoService {
 			);
 		}
 
-		const { url, api_key } = this.config.get().operator;
+		const { url, api_key, gas_price_in_atomics } = this.config.get().operator;
 
 		const body = {
-			gasPriceInAtomics: 1,
+			gasPriceInAtomics: gas_price_in_atomics,
 			chainStorageInDays: 30,
 			channels: [
 				{ name: 'notifChannel', public: true },
